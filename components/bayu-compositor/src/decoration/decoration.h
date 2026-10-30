@@ -50,6 +50,8 @@ public:
     bool isActive() const;
     std::string title() const;
     const std::vector<CaptionButton>& buttons() const { return m_buttons; }
+    // True while the pointer is over, or presses, any caption button.
+    bool anyButtonHovered() const { return m_hoveredButton >= 0 || m_pressedButton >= 0; }
     // Where the caption may be drawn, in frame coordinates.
     base::Rect captionArea() const;
     // True once the window is maximized, so the maximize button shows the

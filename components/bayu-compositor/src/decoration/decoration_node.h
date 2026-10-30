@@ -38,6 +38,7 @@ private:
     void paintFrame(render::Renderer& renderer, const base::Rect& bounds) const;
     void paintCaption(render::Renderer& renderer, const base::Rect& bounds) const;
     void paintButtons(render::Renderer& renderer, const base::Rect& bounds) const;
+    void paintTrafficLights(render::Renderer& renderer, const base::Rect& bounds) const;
 
     const Decoration* m_decoration = nullptr;
     Theme* m_theme = nullptr;

@@ -150,8 +150,15 @@ base::Rect Decoration::inputBounds() const
 
 base::Rect Decoration::captionArea() const
 {
-    const Metrics &metrics = m_theme->metrics();
+    const Metrics& metrics = m_theme->metrics();
     const base::Rect area = titleBarRect();
+    if (metrics.trafficLights) {
+        // Buttons on the left: keep the caption clear of them, and give the
+        // right edge the same breathing room so it stays visually centred.
+        const int buttonsWidth = metrics.trafficLeftMargin
+                + static_cast<int>(m_buttons.size()) * metrics.trafficHitSize;
+        return area.adjusted(buttonsWidth + metrics.captionMargin, 0, -metrics.captionMargin, 0);
+    }
     int buttonsWidth = 0;
     if (!m_buttons.empty()) {
         buttonsWidth = static_cast<int>(m_buttons.size()) * metrics.buttonSize
@@ -163,8 +170,31 @@ base::Rect Decoration::captionArea() const
 
 void Decoration::layout()
 {
-    const Metrics &metrics = m_theme->metrics();
+    const Metrics& metrics = m_theme->metrics();
     const base::Rect titleBar = titleBarRect();
+
+    if (metrics.trafficLights) {
+        // Left to right: close, minimize, zoom. m_buttons is kept in the
+        // order minimize, maximize, close, so place them by type.
+        const int size = metrics.trafficHitSize;
+        const int top = titleBar.top() + std::max(0, (titleBar.height() - size) / 2);
+        auto slot = [](CaptionButtonType type) {
+            switch (type) {
+            case CaptionButtonType::Close:
+                return 0;
+            case CaptionButtonType::Minimize:
+                return 1;
+            case CaptionButtonType::Maximize:
+                return 2;
+            }
+            return 0;
+        };
+        for (CaptionButton& button : m_buttons) {
+            const int left = titleBar.left() + metrics.trafficLeftMargin + slot(button.type()) * size;
+            button.setGeometry(base::Rect(left, top, size, size));
+        }
+        return;
+    }
 
     // The group is right-aligned, in the order the Bayu KWin configuration
     // lists it: minimize, maximize, close.

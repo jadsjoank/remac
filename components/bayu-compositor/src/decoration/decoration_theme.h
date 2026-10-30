@@ -54,6 +54,17 @@ struct Metrics {
     int buttonSize = 32;
     int buttonSpacing = 1;
     int buttonsRightMargin = 4;
+
+    // macOS-style "traffic lights": three round buttons on the left, in the
+    // order close, minimize, zoom. Set to false for the original right-aligned
+    // FishUI buttons.
+    bool trafficLights = true;
+    // Visible diameter of each circle.
+    int trafficDiameter = 12;
+    // Hit box of each button; the gap between circles is hitSize - diameter.
+    int trafficHitSize = 20;
+    // From the window's left edge to the first hit box.
+    int trafficLeftMargin = 9;
     // The artwork is drawn on a 24x24 grid inside the button.
     int iconSize = 24;
     // kwin-plugins: the caption keeps this much clear of the buttons.

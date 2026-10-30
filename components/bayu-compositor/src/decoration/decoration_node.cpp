@@ -39,6 +39,11 @@ const char* iconName(CaptionButtonType type, bool restore)
     return "";
 }
 
+render::Color rgbf(int r, int g, int b)
+{
+    return render::Color {r / 255.0f, g / 255.0f, b / 255.0f, 1.0f};
+}
+
 // The centre of the last pixels inside: an even width rounds toward the origin.
 base::Point innerCenter(const base::Rect& rect)
 {
@@ -163,8 +168,70 @@ void DecorationNode::paintCaption(render::Renderer& renderer, const base::Rect& 
     renderer.drawTextureMapped(texture, target, 1.0f, base::AffineTransform());
 }
 
+void DecorationNode::paintTrafficLights(render::Renderer& renderer, const base::Rect& bounds) const
+{
+    const int rasterDensity = int(std::ceil(renderer.rasterScale()));
+    const Metrics& metrics = m_theme->metrics();
+    const bool dark = m_theme->darkMode();
+    const bool active = m_decoration->isActive();
+    // Symbols show on every button while the pointer is on any of them, as on macOS.
+    const bool showGlyph = active && m_decoration->anyButtonHovered();
+
+    for (const CaptionButton& button : m_decoration->buttons()) {
+        const base::Rect geometry = button.geometry().translated(bounds.origin());
+        if (!bounds.contains(innerCenter(geometry)))
+            continue;
+
+        render::Color fill;
+        render::Color glyph;
+        if (!active) {
+            // Unfocused windows keep neutral grey circles.
+            fill = dark ? rgbf(0x5A, 0x5A, 0x5C) : rgbf(0xD0, 0xD0, 0xD0);
+            glyph = fill;
+        } else {
+            switch (button.type()) {
+            case CaptionButtonType::Close:
+                fill = rgbf(0xFF, 0x5F, 0x57);
+                glyph = rgbf(0x4D, 0x00, 0x00);
+                break;
+            case CaptionButtonType::Minimize:
+                fill = rgbf(0xFE, 0xBC, 0x2E);
+                glyph = rgbf(0x59, 0x37, 0x00);
+                break;
+            case CaptionButtonType::Maximize:
+                fill = rgbf(0x28, 0xC8, 0x40);
+                glyph = rgbf(0x00, 0x40, 0x0A);
+                break;
+            }
+            if (button.isPressed()) {
+                // A pressed button darkens, as the system ones do.
+                fill = render::Color {fill.r * 0.78f, fill.g * 0.78f, fill.b * 0.78f, 1.0f};
+            }
+        }
+
+        const bool restore = m_decoration->isRestoreButton();
+        const std::string key = std::format("{}tl:{}:{}:{}:{}:{}", rasterDensity,
+                                            iconName(button.type(), restore),
+                                            metrics.trafficDiameter, colorKey(fill),
+                                            showGlyph ? 1 : 0, colorKey(glyph));
+        render::Texture* texture = m_theme->texture(renderer, key, [&] {
+            return renderTrafficLight(button.type(), restore,
+                                      metrics.trafficDiameter * rasterDensity, fill, glyph,
+                                      showGlyph);
+        });
+        if (!texture)
+            continue;
+        const base::Size size = (base::SizeF(texture->size()) / rasterDensity).toSize();
+        renderer.drawTexture(texture, centeredAt(size, innerCenter(geometry)));
+    }
+}
+
 void DecorationNode::paintButtons(render::Renderer& renderer, const base::Rect& bounds) const
 {
+    if (m_theme->metrics().trafficLights) {
+        paintTrafficLights(renderer, bounds);
+        return;
+    }
     const int rasterDensity = int(std::ceil(renderer.rasterScale()));
     const Metrics& metrics = m_theme->metrics();
     const Palette& palette = m_theme->palette();

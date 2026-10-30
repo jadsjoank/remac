@@ -54,6 +54,15 @@ private:
 Image renderCaptionIcon(CaptionButtonType type, bool restore, int size,
                         const render::Color& color);
 
+// A macOS-style round button: a filled circle with a hairline ring and, when
+// `showGlyph` is set (the pointer is over the button group), a small dark
+// symbol - cross, bar, or plus/minus-arrows for zoom. `diameter` is in pixels.
+// `glyphColor` is drawn over `fill`. `restore` is unused for now but kept so the
+// zoom glyph can differ when the window is maximized.
+Image renderTrafficLight(CaptionButtonType type, bool restore, int diameter,
+                         const render::Color& fill, const render::Color& glyphColor,
+                         bool showGlyph);
+
 // The circular wash under a hovered or pressed button.
 Image renderButtonHighlight(int buttonSize, const render::Color& color);
 

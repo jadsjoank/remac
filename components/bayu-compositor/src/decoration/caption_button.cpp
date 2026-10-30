@@ -4,7 +4,9 @@
 
 #include "decoration/caption_button.h"
 
+#include <algorithm>
 #include <cmath>
+#include <vector>
 
 #include "ui/bitmap.h"
 #include "ui/bitmap_painter.h"
@@ -144,6 +146,95 @@ Image renderCaptionIcon(CaptionButtonType type, bool restore, int size,
     for (int y = 0; y < size; ++y) {
         for (int x = 0; x < size; ++x)
             image.blend(x, y, color, mask.alpha(x, y) / 255.0f);
+    }
+    return image;
+}
+
+namespace {
+
+// Distance from point (px, py) to the segment (ax, ay)-(bx, by).
+float distToSegment(float px, float py, float ax, float ay, float bx, float by)
+{
+    const float dx = bx - ax;
+    const float dy = by - ay;
+    const float len2 = dx * dx + dy * dy;
+    float t = len2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0.0f;
+    t = std::max(0.0f, std::min(1.0f, t));
+    const float cx = ax + t * dx;
+    const float cy = ay + t * dy;
+    return std::hypot(px - cx, py - cy);
+}
+
+struct Segment {
+    float ax, ay, bx, by;
+};
+
+} // namespace
+
+Image renderTrafficLight(CaptionButtonType type, bool /*restore*/, int diameter,
+                         const render::Color& fill, const render::Color& glyphColor,
+                         bool showGlyph)
+{
+    Image image(base::Size(diameter, diameter));
+    if (diameter <= 0)
+        return image;
+
+    const float d = static_cast<float>(diameter);
+    const float radius = d / 2.0f;
+    // Hairline ring: the fill, a bit darker, so the circle holds its edge on
+    // both light and dark titlebars.
+    const render::Color ring {fill.r * 0.82f, fill.g * 0.82f, fill.b * 0.82f, fill.a};
+    const float ringWidth = std::max(0.5f, d / 24.0f);
+
+    // Glyph strokes on a unit square (0..1), then scaled into the circle.
+    std::vector<Segment> glyph;
+    if (showGlyph) {
+        switch (type) {
+        case CaptionButtonType::Close:
+            glyph = {{0.34f, 0.34f, 0.66f, 0.66f}, {0.66f, 0.34f, 0.34f, 0.66f}};
+            break;
+        case CaptionButtonType::Minimize:
+            glyph = {{0.30f, 0.50f, 0.70f, 0.50f}};
+            break;
+        case CaptionButtonType::Maximize:
+            glyph = {{0.30f, 0.50f, 0.70f, 0.50f}, {0.50f, 0.30f, 0.50f, 0.70f}};
+            break;
+        }
+    }
+    const float strokeHalf = std::max(0.5f, d * 0.065f);
+
+    constexpr int kSamples = 4;
+    for (int y = 0; y < diameter; ++y) {
+        for (int x = 0; x < diameter; ++x) {
+            float fillCov = 0, ringCov = 0, glyphCov = 0;
+            for (int sy = 0; sy < kSamples; ++sy) {
+                for (int sx = 0; sx < kSamples; ++sx) {
+                    const float px = x + (sx + 0.5f) / kSamples;
+                    const float py = y + (sy + 0.5f) / kSamples;
+                    const float dist = std::hypot(px - radius, py - radius);
+                    if (dist <= radius) {
+                        if (dist >= radius - ringWidth)
+                            ringCov += 1;
+                        else
+                            fillCov += 1;
+                    }
+                    for (const Segment& seg : glyph) {
+                        if (distToSegment(px / d, py / d, seg.ax, seg.ay, seg.bx, seg.by) * d
+                            <= strokeHalf) {
+                            glyphCov += 1;
+                            break;
+                        }
+                    }
+                }
+            }
+            const float n = kSamples * kSamples;
+            if (fillCov > 0)
+                image.blend(x, y, fill, fillCov / n);
+            if (ringCov > 0)
+                image.blend(x, y, ring, ringCov / n);
+            if (glyphCov > 0)
+                image.blend(x, y, glyphColor, glyphCov / n);
+        }
     }
     return image;
 }
